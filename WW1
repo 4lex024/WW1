@@ -1,0 +1,251 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+    Name = "WW1 Script",
+    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+    LoadingTitle = "4lex_024",
+    LoadingSubtitle = "by 4lex_024",
+    Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+ 
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+ 
+    ConfigurationSaving = {
+       Enabled = false,
+       FolderName = nil, -- Create a custom folder for your hub/game
+       FileName = "Tes aja"
+    },
+ 
+    Discord = {
+       Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+       Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+       RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+    },
+ 
+    KeySystem = false, -- Set this to true to use our key system
+    KeySettings = {
+       Title = "WW1 Script",
+       Subtitle = "Key System",
+       Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+       FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+       SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+       Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+    }
+ })
+
+ local MainTab = Window:CreateTab("🏠 HOME", nil) -- Title, Image
+ local MainSection = MainTab:CreateSection("Main")
+
+ Rayfield:Notify({
+    Title = "You Executed The Script",
+    Content = "very good gui",
+    Duration = 5,
+    Image = nil,
+    Actions = { -- Notification Buttons
+      Ignore = {
+         Name = "Okay!",
+         Callback = function()
+         print("The user tapped Okay!")
+      end
+   },
+},
+ })
+
+ local Players = game:GetService("Players")
+ local RunService = game:GetService("RunService")
+ local UserInputService = game:GetService("UserInputService")
+ local Camera = workspace.CurrentCamera
+ local LocalPlayer = Players.LocalPlayer
+ 
+ local AutoAimEnabled = false
+ local HoldingRightClick = false
+ local AutoAimConnection
+ 
+ local RaycastParams = RaycastParams.new()
+ RaycastParams.FilterDescendantsInstances = {LocalPlayer.Character}
+ RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+ 
+ UserInputService.InputBegan:Connect(function(input, gameProcessed)
+     if input.UserInputType == Enum.UserInputType.MouseButton2 then
+         HoldingRightClick = true
+     end
+ end)
+ 
+ UserInputService.InputEnded:Connect(function(input, gameProcessed)
+     if input.UserInputType == Enum.UserInputType.MouseButton2 then
+         HoldingRightClick = false
+     end
+ end)
+ 
+ local Toggle = MainTab:CreateToggle({
+     Name = "Auto Aim Musuh Terdekat Crosshair (Hold Right Click)",
+     CurrentValue = false,
+     Flag = "Toggle1",
+     Callback = function(Value)
+         AutoAimEnabled = Value
+ 
+         if AutoAimEnabled then
+             print("Auto Aim Aktif")
+ 
+             AutoAimConnection = RunService.RenderStepped:Connect(function()
+                 if HoldingRightClick then
+                     local ClosestTarget
+                     local ClosestDistanceFromCrosshair = math.huge
+ 
+                     for _, player in pairs(Players:GetPlayers()) do
+                         if player ~= LocalPlayer 
+                         and player.Team ~= LocalPlayer.Team 
+                         and player.Character 
+                         and player.Character:FindFirstChild("Head") then
+                             
+                             local head = player.Character.Head
+                             
+                             -- Raycast Anti Tembok
+                             local RayResult = workspace:Raycast(Camera.CFrame.Position, (head.Position - Camera.CFrame.Position).Unit * (Camera.CFrame.Position - head.Position).Magnitude, RaycastParams)
+ 
+                             if RayResult and RayResult.Instance:IsDescendantOf(player.Character) then
+                                 local HeadPos, OnScreen = Camera:WorldToViewportPoint(head.Position)
+ 
+                                 if OnScreen then
+                                     local ScreenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                                     local HeadVector2 = Vector2.new(HeadPos.X, HeadPos.Y)
+                                     local DistanceFromCrosshair = (HeadVector2 - ScreenCenter).Magnitude
+ 
+                                     if DistanceFromCrosshair < ClosestDistanceFromCrosshair then
+                                         ClosestDistanceFromCrosshair = DistanceFromCrosshair
+                                         ClosestTarget = head
+                                     end
+                                 end
+                             end
+                         end
+                     end
+ 
+                     if ClosestTarget then
+                         Camera.CFrame = CFrame.new(Camera.CFrame.Position, ClosestTarget.Position)
+                     end
+                 end
+             end)
+ 
+         else
+             print("Auto Aim Nonaktif")
+             if AutoAimConnection then
+                 AutoAimConnection:Disconnect()
+                 AutoAimConnection = nil
+             end
+         end
+     end,
+ })
+ 
+ local Players = game:GetService("Players")
+ local RunService = game:GetService("RunService")
+ local LocalPlayer = Players.LocalPlayer
+ 
+ local ESPEnabled = false
+ local ESPCache = {}
+ 
+ local function AddESP(player)
+     if player == LocalPlayer then return end
+     if ESPCache[player] then return end
+ 
+     local function CreateBox(part)
+         local box = Instance.new("BoxHandleAdornment")
+         box.Name = "ESPBox"
+         box.Adornee = part
+         box.Size = part.Size + Vector3.new(0.1, 0.1, 0.1)
+         box.AlwaysOnTop = true
+         box.ZIndex = 5
+         box.Transparency = 0.5
+         box.Color3 = (player.Team == LocalPlayer.Team) and Color3.fromRGB(0, 0, 255) or Color3.fromRGB(255, 0, 0)
+         box.Parent = part
+     end
+ 
+     local function CreateESP()
+         if not player.Character then return end
+         for _, part in pairs(player.Character:GetChildren()) do
+             if part:IsA("BasePart") then
+                 if not part:FindFirstChild("ESPBox") then
+                     CreateBox(part)
+                 end
+             end
+         end
+     end
+ 
+     CreateESP()
+ 
+     local CharacterAddedConn = player.CharacterAdded:Connect(function(char)
+         char:WaitForChild("HumanoidRootPart")
+         task.wait(0.1)
+         if ESPEnabled then
+             CreateESP()
+         end
+     end)
+ 
+     ESPCache[player] = CharacterAddedConn
+ end
+ 
+ local function RemoveESP()
+     for player, conn in pairs(ESPCache) do
+         if conn then conn:Disconnect() end
+         if player.Character then
+             for _, part in pairs(player.Character:GetChildren()) do
+                 if part:IsA("BasePart") and part:FindFirstChild("ESPBox") then
+                     part.ESPBox:Destroy()
+                 end
+             end
+         end
+     end
+     table.clear(ESPCache)
+ end
+ 
+ local Toggle = MainTab:CreateToggle({
+     Name = "ESP Super Ringan",
+     CurrentValue = false,
+     Flag = "ToggleESP",
+     Callback = function(Value)
+         ESPEnabled = Value
+         if not Value then
+             RemoveESP()
+         else
+             for _, player in pairs(Players:GetPlayers()) do
+                 AddESP(player)
+             end
+         end
+     end,
+ })
+ 
+ Players.PlayerAdded:Connect(function(player)
+     if ESPEnabled then
+         AddESP(player)
+     end
+ end)
+ 
+ Players.PlayerRemoving:Connect(function(player)
+     if ESPCache[player] then
+         ESPCache[player]:Disconnect()
+         ESPCache[player] = nil
+     end
+ end)
+ 
+ RunService.RenderStepped:Connect(function()
+     if ESPEnabled then
+         for _, player in pairs(Players:GetPlayers()) do
+             if player ~= LocalPlayer and player.Character then
+                 for _, part in pairs(player.Character:GetChildren()) do
+                     if part:IsA("BasePart") and not part:FindFirstChild("ESPBox") then
+                         local box = Instance.new("BoxHandleAdornment")
+                         box.Name = "ESPBox"
+                         box.Adornee = part
+                         box.Size = part.Size + Vector3.new(0.1, 0.1, 0.1)
+                         box.AlwaysOnTop = true
+                         box.ZIndex = 5
+                         box.Transparency = 0.5
+                         box.Color3 = (player.Team == LocalPlayer.Team) and Color3.fromRGB(0, 0, 255) or Color3.fromRGB(255, 0, 0)
+                         box.Parent = part
+                     end
+                 end
+             end
+         end
+     end
+ end)
+ 
